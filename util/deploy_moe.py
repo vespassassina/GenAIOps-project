@@ -75,10 +75,10 @@ def deploy_flow(endpoint_name, deployment_name):
         name=deployment_name,
         endpoint_name=endpoint_name,
         model=Model(
-            name="ragflow",
+            name="ragwithtrace",
             path=flow_path,  # path to promptflow folder
             properties=[ # this enables the chat interface in the endpoint test tab
-                ["azureml.promptflow.source_flow_id", "ragflow"],
+                ["azureml.promptflow.source_flow_id", "ragwithtrace"],
                 ["azureml.promptflow.mode", "chat"],
                 ["azureml.promptflow.chat_input", "question"],
                 ["azureml.promptflow.chat_output", "answer"]
@@ -106,24 +106,31 @@ def deploy_flow(endpoint_name, deployment_name):
         # instance type comes with associated cost.
         # make sure you have quota for the specified instance type
         # See more details here: https://learn.microsoft.com/azure/machine-learning/reference-managed-online-endpoints-vm-sku-list
-        instance_type="Standard_DS3_v2",
+        instance_type="Standard_DS4_v2",
         instance_count=1,
         environment_variables={
+            "AZURE_CLIENT_ID": "fc7aae3c-89e5-4147-a1d2-4721abc73e93",
+            "AZURE_TENANT_ID": "b20a0381-1ccb-4054-8ad4-97fb55debfca",
+            "AZURE_CLIENT_SECRET": "nbS8Q~cAbBVzrzo4xlaVO6_QWzalNjiiBUuDPaqu",
+
             "PRT_CONFIG_OVERRIDE": f"deployment.subscription_id={client.subscription_id},deployment.resource_group={client.resource_group_name},deployment.workspace_name={client.workspace_name},deployment.endpoint_name={endpoint_name},deployment.deployment_name={deployment_name}",
             "AZURE_SUBSCRIPTION_ID": os.environ["AZURE_SUBSCRIPTION_ID"],
             "AZURE_RESOURCE_GROUP": os.environ["AZURE_RESOURCE_GROUP"],
             "AZUREAI_PROJECT_NAME": os.environ["AZUREAI_PROJECT_NAME"],
             "AZURE_OPENAI_ENDPOINT": azure_config.aoai_endpoint,
             "AZURE_OPENAI_API_VERSION": azure_config.aoai_api_version,
+            "AZURE_OPENAI_API_KEY": os.environ["AZURE_OPENAI_API_KEY"],
             "AZURE_SEARCH_ENDPOINT": azure_config.search_endpoint,
             "AZURE_OPENAI_CHAT_DEPLOYMENT": os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT"),
             "AZURE_OPENAI_EMBEDDING_MODEL": os.getenv("AZURE_OPENAI_EMBEDDING_MODEL"),
-            "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": os.getenv("AZURE_OPENAI_EMBEDDING_MODEL")  # using the same name for the deployment as the model for simplicity
+            "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": os.getenv("AZURE_OPENAI_EMBEDDING_MODEL"),  # using the same name for the deployment as the model for simplicity
+            "AZURE_SEARCH_API_KEY": os.getenv("AZURE_SEARCH_API_KEY")
         }
     )
 
     # 1. create endpoint
     endpoint = client.begin_create_or_update(endpoint).result() # result() means we wait on this to complete
+    print(f"Endpoint created: {endpoint}")
 
     # 2. provide endpoint access to Azure Open AI resource
     create_role_assignment(
@@ -148,7 +155,7 @@ def deploy_flow(endpoint_name, deployment_name):
     # 3. provide endpoint access to Azure AI Search resource
     create_role_assignment(
         scope=f"/subscriptions/{client.subscription_id}/resourceGroups/{azure_config.resource_group}/providers/Microsoft.Search/searchServices/{azure_config.search_account_name}",
-        role_name="Search Index Data Contributor",
+        role_name="Contributor",
         principal_id=endpoint.identity.principal_id
         )
     
@@ -198,6 +205,8 @@ def create_role_assignment(scope, role_name, principal_id):
             principal_id=principal_id,
             principal_type="ServicePrincipal"
             )
+
+        print("Assigning Role:" + role_name + " to " + principal_id)
     
         # Create role assignment
         role_assignment = auth_client.role_assignments.create(

@@ -46,6 +46,7 @@ class AzureConfig:
         self.subscription_id = self.get_env_var("AZURE_SUBSCRIPTION_ID")
         self.resource_group = self.get_env_var("AZURE_RESOURCE_GROUP")
         self.workspace_name = self.get_env_var("AZUREAI_PROJECT_NAME")
+        
         self.check_missing_vars()
 
         # If essential variables are provided, initialize Azure clients
